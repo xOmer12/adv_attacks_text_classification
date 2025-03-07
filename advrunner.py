@@ -128,6 +128,7 @@ def calculate_perturbed_accuracy(dict_attack_results):
     return correct / len(dict_attack_results)
 
 def run_FGSM_attack(advrunner, adv_test_loader, verbose=False):
+    print("Running FGSM attack...")
     dict_attack_results = {}
     for inputs in tqdm(adv_test_loader):
         single_input = {key: inputs[key][0] for key in inputs.keys()} # The format it works in (batch_size=1 here)
