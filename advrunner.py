@@ -129,7 +129,7 @@ def calculate_perturbed_accuracy(dict_attack_results):
 
 def run_FGSM_attack(advrunner, adv_test_loader, verbose=False):
     dict_attack_results = {}
-    for inputs in tqdm.tqdm(adv_test_loader):
+    for inputs in tqdm(adv_test_loader):
         single_input = {key: inputs[key][0] for key in inputs.keys()} # The format it works in (batch_size=1 here)
         original_text, original_text_pred, original_text_loss, original_emb_pred, original_emb_loss, \
                 perturbed_text, perturbed_text_pred, perturbed_loss, perturbed_emb_pred, perturbed_emb_loss = \

@@ -6,7 +6,6 @@ python pipeline.py
 
 And add or change parameters.
 
-
 # What Next
 1. Need new attacks (PGD etc.).
 2. Fix projection in advrunner.py (project function with PP^T).
