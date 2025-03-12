@@ -96,8 +96,72 @@ class AdvRunner:
         return original_text, original_text_pred, original_text_loss, original_emb_pred, original_emb_loss, \
                 perturbed_text, perturbed_text_pred, perturbed_loss, perturbed_emb_pred, perturbed_emb_loss
     
-    def PGD_step(self):
-        pass
+    def PGD(self, inputs, num_iter=10, verbose=False):
+        # Decode original input text and append the suffix 
+        original_text = self.decode(inputs['input_ids'][0]) + self.suffix
+
+        # Tokenize perturbed text
+        tokenized = self.tokenizer(original_text, return_tensors='pt').to(self.device)
+        input_ids = tokenized['input_ids']
+        attention_mask = tokenized['attention_mask']
+        label = inputs['label'].float().to(self.device)
+
+        # Get original text loss
+        original_text_pred, original_text_loss = self.get_pred_and_loss(input_ids=input_ids,
+                                                                            attention_mask=attention_mask,
+                                                                            label=label)
+        # Get embeddings and enable gradient tracking
+        inputs_embeds = self.embeddings_matrix[input_ids].clone().detach().to(self.device).requires_grad_(True)
+        # Forward pass with embeddings
+        original_emb_pred, original_emb_loss = self.get_pred_and_loss(inputs_embeds=inputs_embeds,
+                                                                        attention_mask=attention_mask,
+                                                                        label=label)
+        
+        curr_emb_pred, curr_emb_loss = original_emb_pred, original_emb_loss
+        for t in range(1,num_iter+1):
+            curr_emb_loss.backward()
+            perturbation = inputs_embeds.grad[:, -(self.suffix_len):-1].sign()
+            with torch.no_grad():
+                inputs_embeds[:, -(self.suffix_len):-1] += self.alpha * perturbation
+                # inputs_embeds = self.project(inputs_embeds)
+
+            with torch.no_grad():
+                distances = torch.cdist(inputs_embeds, self.embeddings_matrix)
+                perturbed_input_ids = distances.argmin(dim=-1)
+            
+            new_text = self.decode(perturbed_input_ids[0])
+            if verbose:
+                print(f'Perturbed Text at Iteration {t}: {new_text}')
+
+            curr_emb_pred, curr_emb_loss = self.get_pred_and_loss(input_ids=perturbed_input_ids,
+                                                            attention_mask=attention_mask,
+                                                            label=label)
+            
+            with torch.no_grad():
+                distances = torch.cdist(inputs_embeds, self.embeddings_matrix)
+                perturbed_input_ids = distances.argmin(dim=-1)
+            
+            # Decode new perturbed text
+            perturbed_text = self.decode(perturbed_input_ids[0])
+            
+            # Get perturbed text loss
+            perturbed_text_pred, perturbed_loss = self.get_pred_and_loss(input_ids=perturbed_input_ids,
+                                                                            attention_mask=attention_mask,
+                                                                            label=label)
+            # Evaluate perturbed inputs_embeds on the model
+            perturbed_emb_pred, perturbed_emb_loss = self.get_pred_and_loss(inputs_embeds=inputs_embeds,
+                                                                            attention_mask=attention_mask,
+                                                                            label=label)
+            if verbose:
+                print(f'Perturbed Text: {perturbed_text}')
+                print(f'Perturbed Prediction: {perturbed_text_pred}')
+                print(f'Perturbed text loss: {perturbed_loss.item()}')
+                print(f'Perturbed Embedding Prediction: {perturbed_emb_pred}')
+                print(f'Perturbed embedding loss: {perturbed_emb_loss.item()}')
+
+            return original_text, original_text_pred, original_text_loss, original_emb_pred, original_emb_loss, \
+                    perturbed_text, perturbed_text_pred, perturbed_loss, perturbed_emb_pred, perturbed_emb_loss
+        
 
 
 class TextAdvDataset(Dataset):
