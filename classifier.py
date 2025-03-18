@@ -12,13 +12,30 @@ class BinaryTextClassifier(nn.Module):
         self.fc = nn.Linear(self.model.config.hidden_size, 1)
         self.sigmoid = nn.Sigmoid()
         self.set_PP_T(normalize=normalize_PP_T)
+        
+    def compute_projection_matrix(self, X):
+        """
+        Compute the projection matrix P that projects any vector onto the space spanned by the rows of X.
+        
+        Args:
+        X: Tensor of shape (N, D) representing N samples in D-dimensional space.
+        
+        Returns:
+        P: Projection matrix of shape (D, D).
+        """
+        X_t = X.T  # (D, N)
+        gram_matrix = torch.matmul(X, X_t)  # (D, D)
+        
+        # Compute the inverse (pseudo-inverse if necessary)
+        gram_inv = torch.inverse(gram_matrix)  # (N, N), assuming full rank
+        
+        # Compute the projection matrix
+        P = torch.matmul(X_t, torch.matmul(gram_inv, X))  # (D, D)
+        return P
 
     def set_PP_T(self, normalize=True):
         self.embeddings_matrix = self.get_static_embeddings_matrix()
-        self.PP_T = self.embeddings_matrix.T @ self.embeddings_matrix
-        if normalize:
-            # normalize using frobenius norm
-            self.PP_T = self.PP_T / torch.norm(self.PP_T, p='fro')
+        self.PP_T = self.compute_projection_matrix(self.embeddings_matrix)
 
     def get_static_embeddings_matrix(self):
         return self.model.get_input_embeddings().weight

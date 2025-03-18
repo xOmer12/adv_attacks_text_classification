@@ -4,6 +4,10 @@ from advrunner import *
 
 import argparse
 
+import os
+# set which GPU to use
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+
 def main():
     parser = argparse.ArgumentParser(description='Train a binary text classifier')
     parser.add_argument('--task', type=str, help='Path to the training data', default='toxic_classification')
@@ -45,6 +49,8 @@ def main():
 
     test_df = pd.merge(test_df, test_labels_df, on='id', how='inner')
     test_df = test_df[test_df['toxic'] != -1]
+    # take a tenth of the test data
+    test_df = test_df.sample(frac=0.1)
 
     # Load the model and tokenizer
     model = BinaryTextClassifier('bert-base-uncased').to(device)
