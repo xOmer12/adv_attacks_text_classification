@@ -99,7 +99,8 @@ class AdvRunner:
         return original_text, original_text_pred, original_text_loss, original_emb_pred, original_emb_loss, \
                 perturbed_text, perturbed_text_pred, perturbed_loss, perturbed_emb_pred, perturbed_emb_loss
     
-    def PGD(self, inputs, num_iter=10, verbose=False):
+
+    def PGD(self, inputs, num_iter=5, verbose=False):
         # Decode original input text and append the suffix 
         original_text = self.decode(inputs['input_ids'][0]) + self.suffix
 
@@ -215,3 +216,26 @@ def run_FGSM_attack(advrunner, adv_test_loader, verbose=False):
             'true_label': single_input['label'].item()
         }
     return dict_attack_results
+
+def run_PGD_attack(advrunner, adv_test_loader, verbose=False):
+    print("Running PGD attack...")
+    dict_attack_results = {}
+    for inputs in tqdm(adv_test_loader):
+        single_input = {key: inputs[key][0] for key in inputs.keys()} # The format it works in (batch_size=1 here)
+        original_text, original_text_pred, original_text_loss, original_emb_pred, original_emb_loss, \
+                perturbed_text, perturbed_text_pred, perturbed_loss, perturbed_emb_pred, perturbed_emb_loss = \
+                advrunner.PGD(single_input, verbose=verbose)
+        dict_attack_results[original_text] = {
+            'original_text_pred': original_text_pred,
+            'original_text_loss': original_text_loss.item(),
+            'original_emb_pred': original_emb_pred,
+            'original_emb_loss': original_emb_loss.item(),
+            'perturbed_text': perturbed_text,
+            'perturbed_text_pred': perturbed_text_pred,
+            'perturbed_loss': perturbed_loss.item(),
+            'perturbed_emb_pred': perturbed_emb_pred,
+            'perturbed_emb_loss': perturbed_emb_loss.item(),
+            'true_label': single_input['label'].item()
+        }
+    return dict_attack_results
+

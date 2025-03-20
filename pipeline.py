@@ -4,9 +4,9 @@ from advrunner import *
 
 import argparse
 
-import os
-# set which GPU to use
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+# import os
+# # set which GPU to use
+# os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 def main():
     parser = argparse.ArgumentParser(description='Train a binary text classifier')
