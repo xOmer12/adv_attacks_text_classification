@@ -88,6 +88,23 @@ def main():
         with open(results_path, 'wb') as f:
             pickle.dump(dict_attack_results, f)
         print(f"Results saved to {results_path}")
+    
+    elif args.attack == 'PGD':
+        dict_attack_results = run_PGD_attack(advrunner, adv_test_loader, verbose=args.verbose)
+        perturbed_accuracy = calculate_perturbed_accuracy(dict_attack_results)
+        print(f"Clean Accuracy: {clean_accuracy}")
+        print(f"Perturbed Accuracy: {perturbed_accuracy}")
+
+        # save the results
+        results_dir = args.results_dir
+        if not os.path.exists(results_dir):
+            os.makedirs(results_dir)
+        results_name = f"{args.model_name}_{args.task}_{args.attack}_results.pkl"
+        results_path = os.path.join(results_dir, results_name)
+        with open(results_path, 'wb') as f:
+            pickle.dump(dict_attack_results, f)
+        print(f"Results saved to {results_path}")
+        
     else:
         print(f"Attack {args.attack} not implemented yet")
 
