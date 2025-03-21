@@ -28,6 +28,7 @@ def main():
     # Attack Parameters
     parser.add_argument('--attack', type=str, help='Type of attack to run', default='FGSM') # TODO: Add more attacks
     parser.add_argument('--alpha', type=float, help='Step size for the attack', default=1e-3)
+    parser.add_argument('--PGD_iterations', type=int, help='Number of iterations for the PGD attack', default=10)
     parser.add_argument('--suffix_len', type=int, help='Length of the suffix to add to the text', default=20)
     parser.add_argument('--suffix_char', type=str, help='Character to use for the suffix', default='!')
     parser.add_argument('--results_dir', type=str, help='Directory to save the results', default='results')
@@ -96,7 +97,7 @@ def main():
         print(f"Results saved to {results_path}")
     
     elif args.attack == 'PGD':
-        dict_attack_results = run_PGD_attack(advrunner, adv_test_loader, verbose=args.verbose)
+        dict_attack_results = run_PGD_attack(advrunner, adv_test_loader, verbose=args.verbose, num_iter=args.PGD_iterations)
         perturbed_accuracy = calculate_perturbed_accuracy(dict_attack_results)
         print(f"Clean Accuracy: {clean_accuracy}")
         print(f"Perturbed Accuracy: {perturbed_accuracy}")

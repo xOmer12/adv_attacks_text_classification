@@ -124,7 +124,7 @@ class AdvRunner:
         curr_emb_pred, curr_emb_loss = original_emb_pred, original_emb_loss
         for t in range(1,num_iter+1):
             curr_emb_loss.backward()
-            perturbation = inputs_embeds.grad[:, -(self.suffix_len):-1].sign()
+            perturbation = inputs_embeds.grad[:, -(self.suffix_len):-1]
             with torch.no_grad():
                 inputs_embeds[:, -(self.suffix_len):-1] += self.alpha * perturbation
                 inputs_embeds = self.project(inputs_embeds)
@@ -140,10 +140,6 @@ class AdvRunner:
             curr_emb_pred, curr_emb_loss = self.get_pred_and_loss(input_ids=perturbed_input_ids,
                                                             attention_mask=attention_mask,
                                                             label=label)
-            
-            with torch.no_grad():
-                distances = torch.cdist(inputs_embeds, self.embeddings_matrix)
-                perturbed_input_ids = distances.argmin(dim=-1)
             
             # Decode new perturbed text
             perturbed_text = self.decode(perturbed_input_ids[0])
@@ -217,14 +213,14 @@ def run_FGSM_attack(advrunner, adv_test_loader, verbose=False):
         }
     return dict_attack_results
 
-def run_PGD_attack(advrunner, adv_test_loader, verbose=False):
+def run_PGD_attack(advrunner, adv_test_loader, verbose=False, num_iter=5):
     print("Running PGD attack...")
     dict_attack_results = {}
     for inputs in tqdm(adv_test_loader):
         single_input = {key: inputs[key][0] for key in inputs.keys()} # The format it works in (batch_size=1 here)
         original_text, original_text_pred, original_text_loss, original_emb_pred, original_emb_loss, \
                 perturbed_text, perturbed_text_pred, perturbed_loss, perturbed_emb_pred, perturbed_emb_loss = \
-                advrunner.PGD(single_input, verbose=verbose)
+                advrunner.PGD(single_input, verbose=verbose, num_iter=num_iter)
         dict_attack_results[original_text] = {
             'original_text_pred': original_text_pred,
             'original_text_loss': original_text_loss.item(),
