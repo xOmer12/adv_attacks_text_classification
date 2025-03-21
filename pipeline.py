@@ -15,6 +15,7 @@ def main():
     parser.add_argument('--test_path', type=str, help='Path to the test data', default='data/test.csv')
     parser.add_argument('--test_label_path', type=str, help='Name of the model to train', default='data/test_labels.csv')
     parser.add_argument('--test_frac', type=float, help='Fraction of the test data to use', default=1)
+    parser.add_argument('--seed', type=int, help='Random seed', default=42)
     parser.add_argument('--verbose', type=bool, help='Verbosity', default=False)
     
     # Classifier Parameters
@@ -37,6 +38,10 @@ def main():
     args = parser.parse_args()
     max_length = args.max_token_length - args.suffix_len
     device = torch.device(args.device)
+
+    # set seed manually for reproducibility
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
     
     # Load the data
     train_df = pd.read_csv(args.train_path)
