@@ -122,7 +122,11 @@ class AdvRunner:
                                                                         label=label)
         
         curr_emb_pred, curr_emb_loss = original_emb_pred, original_emb_loss
+
+        loss_dict = {}
+        iter_state_dict = {}
         for t in range(1,num_iter+1):
+            iter_key = f'iter_{t}'
             curr_emb_loss.backward()
             perturbation = inputs_embeds.grad[:, -(self.suffix_len):-1]
             with torch.no_grad():
@@ -148,6 +152,9 @@ class AdvRunner:
             perturbed_text_pred, perturbed_loss = self.get_pred_and_loss(input_ids=perturbed_input_ids,
                                                                             attention_mask=attention_mask,
                                                                             label=label)
+
+            loss_dict[iter_key] = perturbed_loss.item()
+
             # Evaluate perturbed inputs_embeds on the model
             perturbed_emb_pred, perturbed_emb_loss = self.get_pred_and_loss(inputs_embeds=inputs_embeds,
                                                                             attention_mask=attention_mask,
@@ -158,10 +165,15 @@ class AdvRunner:
                 print(f'Perturbed text loss: {perturbed_loss.item()}')
                 print(f'Perturbed Embedding Prediction: {perturbed_emb_pred}')
                 print(f'Perturbed embedding loss: {perturbed_emb_loss.item()}')
-
-            return original_text, original_text_pred, original_text_loss, original_emb_pred, original_emb_loss, \
-                    perturbed_text, perturbed_text_pred, perturbed_loss, perturbed_emb_pred, perturbed_emb_loss
+            
+            iter_state_dict[iter_key] = (perturbed_text, perturbed_text_pred, perturbed_loss, perturbed_emb_pred, perturbed_emb_loss)
         
+        # Take the iteration with the maximal loss
+        max_iter_key = max(loss_dict, key=loss_dict.get)
+        perturbed_text, perturbed_text_pred, perturbed_loss, perturbed_emb_pred, perturbed_emb_loss = iter_state_dict[max_iter_key]
+
+        return original_text, original_text_pred, original_text_loss, original_emb_pred, original_emb_loss, \
+                perturbed_text, perturbed_text_pred, perturbed_loss, perturbed_emb_pred, perturbed_emb_loss
 
 
 class TextAdvDataset(Dataset):
@@ -206,7 +218,7 @@ def run_FGSM_attack(advrunner, adv_test_loader, verbose=False):
             'original_emb_loss': original_emb_loss.item(),
             'perturbed_text': perturbed_text,
             'perturbed_text_pred': perturbed_text_pred,
-            'perturbed_loss': perturbed_loss.item(),
+            'perturbed_text_loss': perturbed_loss.item(),
             'perturbed_emb_pred': perturbed_emb_pred,
             'perturbed_emb_loss': perturbed_emb_loss.item(),
             'true_label': single_input['label'].item()
@@ -228,7 +240,7 @@ def run_PGD_attack(advrunner, adv_test_loader, verbose=False, num_iter=5):
             'original_emb_loss': original_emb_loss.item(),
             'perturbed_text': perturbed_text,
             'perturbed_text_pred': perturbed_text_pred,
-            'perturbed_loss': perturbed_loss.item(),
+            'perturbed_text_loss': perturbed_loss.item(),
             'perturbed_emb_pred': perturbed_emb_pred,
             'perturbed_emb_loss': perturbed_emb_loss.item(),
             'true_label': single_input['label'].item()
