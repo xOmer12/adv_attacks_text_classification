@@ -14,6 +14,7 @@ def main():
     parser.add_argument('--train_path', type=str, help='Path to the training data', default='data/train.csv')
     parser.add_argument('--test_path', type=str, help='Path to the test data', default='data/test.csv')
     parser.add_argument('--test_label_path', type=str, help='Name of the model to train', default='data/test_labels.csv')
+    parser.add_argument('--test_frac', type=float, help='Fraction of the test data to use', default=1)
     parser.add_argument('--verbose', type=bool, help='Verbosity', default=False)
     
     # Classifier Parameters
@@ -51,7 +52,7 @@ def main():
     test_df = pd.merge(test_df, test_labels_df, on='id', how='inner')
     test_df = test_df[test_df['toxic'] != -1]
     # take a tenth of the test data
-    test_df = test_df.sample(frac=0.1)
+    test_df = test_df.sample(frac=args.test_frac)
 
     # Load the model and tokenizer
     model = BinaryTextClassifier('bert-base-uncased').to(device)
