@@ -14,7 +14,7 @@ from sklearn.manifold import TSNE
 import seaborn as sns
 
 def get_cls_token_embedding(text, model, tokenizer, device):
-    inputs = tokenizer(text, return_tensors='pt')
+    inputs = tokenizer(text, return_tensors='pt', padding='max_length', max_length=512, truncation=True)
     input_ids = inputs['input_ids'].to(device)
     attention_mask = inputs['attention_mask'].to(device)
     with torch.no_grad():

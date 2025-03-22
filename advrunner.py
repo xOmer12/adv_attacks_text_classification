@@ -75,7 +75,7 @@ class AdvRunner:
         perturbed_text = self.decode(perturbed_input_ids[0])
 
         # Get perturbed text loss
-        perturbed_text_pred, perturbed_loss = self.get_pred_and_loss(input_ids=perturbed_input_ids,
+        perturbed_text_pred, perturbed_text_loss = self.get_pred_and_loss(input_ids=perturbed_input_ids,
                                                                         attention_mask=attention_mask,
                                                                         label=label)
         # Evaluate perturbed inputs_embeds on the model
@@ -85,15 +85,15 @@ class AdvRunner:
         if verbose:
             print(f'Perturbed Text: {perturbed_text}')
             print(f'Perturbed Prediction: {perturbed_text_pred}')
-            print(f'Perturbed text loss: {perturbed_loss.item()}')
+            print(f'Perturbed text loss: {perturbed_text_loss.item()}')
             print(f'Perturbed Embedding Prediction: {perturbed_emb_pred}')
             print(f'Perturbed embedding loss: {perturbed_emb_loss.item()}')
 
         return original_text, original_text_pred, original_text_loss, original_emb_pred, original_emb_loss, \
-                perturbed_text, perturbed_text_pred, perturbed_loss, perturbed_emb_pred, perturbed_emb_loss
+                perturbed_text, perturbed_text_pred, perturbed_text_loss, perturbed_emb_pred, perturbed_emb_loss
     
 
-    def PGD(self, inputs, num_iter=5, verbose=False):
+    def PGD(self, inputs, num_iter=5, verbose=False, return_iter_results=False):
         # Decode original input text and append the suffix 
         original_text = self.decode(inputs['input_ids'][0]) + self.suffix
 
@@ -116,17 +116,18 @@ class AdvRunner:
         
         curr_emb_pred, curr_emb_loss = original_emb_pred, original_emb_loss
 
+        # save loss throughout iterations
+        loss_list = [original_text_loss.item()]
+
         loss_dict = {}
         iter_state_dict = {}
-        for t in range(1,num_iter+1):
+        for t in range(1, num_iter + 1):
             iter_key = f'iter_{t}'
             curr_emb_loss.backward()
             perturbation = inputs_embeds.grad[:, -(self.suffix_len):-1]
             with torch.no_grad():
                 inputs_embeds[:, -(self.suffix_len):-1] += self.alpha * perturbation
-                inputs_embeds = self.project(inputs_embeds)
-
-            with torch.no_grad():
+                # inputs_embeds = self.project(inputs_embeds)
                 distances = torch.cdist(inputs_embeds, self.embeddings_matrix)
                 perturbed_input_ids = distances.argmin(dim=-1)
             
@@ -142,11 +143,11 @@ class AdvRunner:
             perturbed_text = self.decode(perturbed_input_ids[0])
             
             # Get perturbed text loss
-            perturbed_text_pred, perturbed_loss = self.get_pred_and_loss(input_ids=perturbed_input_ids,
+            perturbed_text_pred, perturbed_text_loss = self.get_pred_and_loss(input_ids=perturbed_input_ids,
                                                                             attention_mask=attention_mask,
                                                                             label=label)
 
-            loss_dict[iter_key] = perturbed_loss.item()
+            loss_dict[iter_key] = perturbed_text_loss.item()
 
             # Evaluate perturbed inputs_embeds on the model
             perturbed_emb_pred, perturbed_emb_loss = self.get_pred_and_loss(inputs_embeds=inputs_embeds,
@@ -155,18 +156,26 @@ class AdvRunner:
             if verbose:
                 print(f'Perturbed Text: {perturbed_text}')
                 print(f'Perturbed Prediction: {perturbed_text_pred}')
-                print(f'Perturbed text loss: {perturbed_loss.item()}')
+                print(f'Perturbed text loss: {perturbed_text_loss.item()}')
                 print(f'Perturbed Embedding Prediction: {perturbed_emb_pred}')
                 print(f'Perturbed embedding loss: {perturbed_emb_loss.item()}')
             
-            iter_state_dict[iter_key] = (perturbed_text, perturbed_text_pred, perturbed_loss, perturbed_emb_pred, perturbed_emb_loss)
-        
+            iter_state_dict[iter_key] = (perturbed_text, perturbed_text_pred, perturbed_text_loss, perturbed_emb_pred, perturbed_emb_loss)
+
+            # save loss throughout iterations
+            loss_list.append(perturbed_text_loss.item())
+
         # Take the iteration with the maximal loss
         max_iter_key = max(loss_dict, key=loss_dict.get)
-        perturbed_text, perturbed_text_pred, perturbed_loss, perturbed_emb_pred, perturbed_emb_loss = iter_state_dict[max_iter_key]
+        perturbed_text, perturbed_text_pred, perturbed_text_loss, perturbed_emb_pred, perturbed_emb_loss = iter_state_dict[max_iter_key]
+
+        if return_iter_results:
+            return original_text, original_text_pred, original_text_loss, original_emb_pred, original_emb_loss, \
+                perturbed_text, perturbed_text_pred, perturbed_text_loss, perturbed_emb_pred, perturbed_emb_loss, \
+                loss_list
 
         return original_text, original_text_pred, original_text_loss, original_emb_pred, original_emb_loss, \
-                perturbed_text, perturbed_text_pred, perturbed_loss, perturbed_emb_pred, perturbed_emb_loss
+                perturbed_text, perturbed_text_pred, perturbed_text_loss, perturbed_emb_pred, perturbed_emb_loss
 
 
 class TextAdvDataset(Dataset):
@@ -202,7 +211,7 @@ def run_FGSM_attack(advrunner, adv_test_loader, verbose=False):
     for inputs in tqdm(adv_test_loader):
         single_input = {key: inputs[key][0] for key in inputs.keys()} # The format it works in (batch_size=1 here)
         original_text, original_text_pred, original_text_loss, original_emb_pred, original_emb_loss, \
-                perturbed_text, perturbed_text_pred, perturbed_loss, perturbed_emb_pred, perturbed_emb_loss = \
+                perturbed_text, perturbed_text_pred, perturbed_text_loss, perturbed_emb_pred, perturbed_emb_loss = \
                 advrunner.FGSM_step(single_input, verbose=verbose)
         dict_attack_results[original_text] = {
             'original_text_pred': original_text_pred,
@@ -211,32 +220,50 @@ def run_FGSM_attack(advrunner, adv_test_loader, verbose=False):
             'original_emb_loss': original_emb_loss.item(),
             'perturbed_text': perturbed_text,
             'perturbed_text_pred': perturbed_text_pred,
-            'perturbed_text_loss': perturbed_loss.item(),
+            'perturbed_text_loss': perturbed_text_loss.item(),
             'perturbed_emb_pred': perturbed_emb_pred,
             'perturbed_emb_loss': perturbed_emb_loss.item(),
             'true_label': single_input['label'].item()
         }
     return dict_attack_results
 
-def run_PGD_attack(advrunner, adv_test_loader, verbose=False, num_iter=5):
+def run_PGD_attack(advrunner, adv_test_loader, verbose=False, num_iter=5, return_iter_results=False):
     print("Running PGD attack...")
     dict_attack_results = {}
     for inputs in tqdm(adv_test_loader):
         single_input = {key: inputs[key][0] for key in inputs.keys()} # The format it works in (batch_size=1 here)
-        original_text, original_text_pred, original_text_loss, original_emb_pred, original_emb_loss, \
-                perturbed_text, perturbed_text_pred, perturbed_loss, perturbed_emb_pred, perturbed_emb_loss = \
-                advrunner.PGD(single_input, verbose=verbose, num_iter=num_iter)
-        dict_attack_results[original_text] = {
-            'original_text_pred': original_text_pred,
-            'original_text_loss': original_text_loss.item(),
-            'original_emb_pred': original_emb_pred,
-            'original_emb_loss': original_emb_loss.item(),
-            'perturbed_text': perturbed_text,
-            'perturbed_text_pred': perturbed_text_pred,
-            'perturbed_text_loss': perturbed_loss.item(),
-            'perturbed_emb_pred': perturbed_emb_pred,
-            'perturbed_emb_loss': perturbed_emb_loss.item(),
-            'true_label': single_input['label'].item()
-        }
+        if return_iter_results:
+            original_text, original_text_pred, original_text_loss, original_emb_pred, original_emb_loss, \
+                    perturbed_text, perturbed_text_pred, perturbed_text_loss, perturbed_emb_pred, perturbed_emb_loss, \
+                    loss_list = advrunner.PGD(single_input, verbose=verbose, num_iter=num_iter, return_iter_results=return_iter_results)
+            dict_attack_results[original_text] = {
+                'original_text_pred': original_text_pred,
+                'original_text_loss': original_text_loss.item(),
+                'original_emb_pred': original_emb_pred,
+                'original_emb_loss': original_emb_loss.item(),
+                'perturbed_text': perturbed_text,
+                'perturbed_text_pred': perturbed_text_pred,
+                'perturbed_text_loss': perturbed_text_loss.item(),
+                'perturbed_emb_pred': perturbed_emb_pred,
+                'perturbed_emb_loss': perturbed_emb_loss.item(),
+                'true_label': single_input['label'].item(),
+                'loss_list': loss_list,
+            }
+        else:
+            original_text, original_text_pred, original_text_loss, original_emb_pred, original_emb_loss, \
+                    perturbed_text, perturbed_text_pred, perturbed_text_loss, perturbed_emb_pred, perturbed_emb_loss = \
+                    advrunner.PGD(single_input, verbose=verbose, num_iter=num_iter)
+            dict_attack_results[original_text] = {
+                'original_text_pred': original_text_pred,
+                'original_text_loss': original_text_loss.item(),
+                'original_emb_pred': original_emb_pred,
+                'original_emb_loss': original_emb_loss.item(),
+                'perturbed_text': perturbed_text,
+                'perturbed_text_pred': perturbed_text_pred,
+                'perturbed_text_loss': perturbed_text_loss.item(),
+                'perturbed_emb_pred': perturbed_emb_pred,
+                'perturbed_emb_loss': perturbed_emb_loss.item(),
+                'true_label': single_input['label'].item()
+            }
     return dict_attack_results
 

@@ -29,8 +29,9 @@ def main():
 
     # Attack Parameters
     parser.add_argument('--attack', type=str, help='Type of attack to run', default='FGSM') # TODO: Add more attacks
-    parser.add_argument('--alpha', type=float, help='Step size for the attack', default=1e-3)
+    parser.add_argument('--alpha', type=float, help='Step size for the attack', default=0.5)
     parser.add_argument('--PGD_iterations', type=int, help='Number of iterations for the PGD attack', default=10)
+    parser.add_argument('--return_iter_results', type=bool, help='Return the results for each iteration of the PGD attack', default=False)
     parser.add_argument('--suffix_len', type=int, help='Length of the suffix to add to the text', default=20)
     parser.add_argument('--suffix_char', type=str, help='Character to use for the suffix', default=' !')
     parser.add_argument('--results_dir', type=str, help='Directory to save the results', default='results')
@@ -104,7 +105,7 @@ def main():
         print(f"Results saved to {results_path}")
     
     elif args.attack == 'PGD':
-        dict_attack_results = run_PGD_attack(advrunner, adv_test_loader, verbose=args.verbose, num_iter=args.PGD_iterations)
+        dict_attack_results = run_PGD_attack(advrunner, adv_test_loader, verbose=args.verbose, num_iter=args.PGD_iterations, return_iter_results=args.return_iter_results)
         perturbed_accuracy = calculate_perturbed_accuracy(dict_attack_results)
         print(f"Clean Accuracy: {clean_accuracy}")
         print(f"Perturbed Accuracy: {perturbed_accuracy}")
@@ -113,7 +114,7 @@ def main():
         results_dir = args.results_dir
         if not os.path.exists(results_dir):
             os.makedirs(results_dir)
-        results_name = f"{args.model_name}_{args.task}_{args.attack}_results.pkl"
+        results_name = f"{args.model_name}_{args.task}_{args.attack}_{args.alpha}_results.pkl"
         results_path = os.path.join(results_dir, results_name)
         with open(results_path, 'wb') as f:
             pickle.dump(dict_attack_results, f)
