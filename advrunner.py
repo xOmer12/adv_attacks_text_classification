@@ -19,10 +19,6 @@ class AdvRunner:
 
     # TODO: check if this is the correct projection (for now we ignore it)
     def project(self, inputs_embeds):
-        # inputs_embeds[:, -(self.suffix_len+1):-1] = torch.einsum(
-        #     'ij,bsj->bsi', self.PP_T, inputs_embeds[:, -(self.suffix_len+1):-1])
-        # print(self.PP_T.shape)
-        # print(inputs_embeds[:, -(self.suffix_len+1):-1].shape)
         inputs_embeds[:, -(self.suffix_len+1):-1] = torch.matmul(inputs_embeds[:, -(self.suffix_len+1):-1], self.PP_T.T)
         return inputs_embeds
 
@@ -71,10 +67,7 @@ class AdvRunner:
         # Apply perturbation
         with torch.no_grad():
             inputs_embeds[:, -(self.suffix_len):-1] += self.alpha * perturbation
-            inputs_embeds = self.project(inputs_embeds)
-
-        # Map perturbed embeddings back to discrete tokens (nearest embeddings by L2 distance)
-        with torch.no_grad():
+            # Map perturbed embeddings back to discrete tokens (nearest embeddings by L2 distance)
             distances = torch.cdist(inputs_embeds, self.embeddings_matrix)
             perturbed_input_ids = distances.argmin(dim=-1)
 

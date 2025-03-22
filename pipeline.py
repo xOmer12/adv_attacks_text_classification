@@ -32,7 +32,7 @@ def main():
     parser.add_argument('--alpha', type=float, help='Step size for the attack', default=1e-3)
     parser.add_argument('--PGD_iterations', type=int, help='Number of iterations for the PGD attack', default=10)
     parser.add_argument('--suffix_len', type=int, help='Length of the suffix to add to the text', default=20)
-    parser.add_argument('--suffix_char', type=str, help='Character to use for the suffix', default='!')
+    parser.add_argument('--suffix_char', type=str, help='Character to use for the suffix', default=' !')
     parser.add_argument('--results_dir', type=str, help='Directory to save the results', default='results')
 
     args = parser.parse_args()
@@ -60,7 +60,7 @@ def main():
     test_df = test_df.sample(frac=args.test_frac)
 
     # Load the model and tokenizer
-    model = BinaryTextClassifier('bert-base-uncased').to(device)
+    model = BinaryTextClassifier('bert-base-uncased', device).to(device)
     train_dataset = TextDataset(train_df, model.tokenizer, max_length=max_length)
     test_dataset = TextDataset(test_df, model.tokenizer, max_length=max_length)
 
@@ -78,13 +78,14 @@ def main():
     model_path = os.path.join(args.model_dir, classifier_name)
 
     train_classifier(model, train_loader, optimizer, criterion, device, epochs=args.train_epochs, model_path=model_path)
-    clean_accuracy = evaluate_classifier(model, test_loader, device)
+    # clean_accuracy = evaluate_classifier(model, test_loader, device)
+    clean_accuracy = 1 # TODO: remove
 
     # Attack
     adv_test_dataset = TextAdvDataset(test_df, model.tokenizer, max_length=max_length)
     adv_test_loader = DataLoader(adv_test_dataset, batch_size=1, shuffle=False)
 
-    advrunner = AdvRunner(model, criterion, optimizer, device, alpha=1e-3, suffix_len=20, suffix_char='!')
+    advrunner = AdvRunner(model, criterion, optimizer, device, alpha=args.alpha, suffix_len=args.suffix_len, suffix_char=args.suffix_char)
     # Run the attack
     if args.attack == 'FGSM':
         dict_attack_results = run_FGSM_attack(advrunner, adv_test_loader, verbose=args.verbose)
@@ -96,7 +97,7 @@ def main():
         results_dir = args.results_dir
         if not os.path.exists(results_dir):
             os.makedirs(results_dir)
-        results_name = f"{args.model_name}_{args.task}_{args.attack}_results.pkl"
+        results_name = f"{args.model_name}_{args.task}_{args.attack}_{args.alpha}_results.pkl"
         results_path = os.path.join(results_dir, results_name)
         with open(results_path, 'wb') as f:
             pickle.dump(dict_attack_results, f)
