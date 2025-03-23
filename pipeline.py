@@ -27,7 +27,7 @@ def main():
 
     # Attack Parameters
     parser.add_argument('--attack', type=str, help='Type of attack to run', default='FGSM') # TODO: Add more attacks
-    parser.add_argument('--alpha', type=float, help='Step size for the attack', default=1e-3)
+    parser.add_argument('--alpha', type=float, help='Step size for the attack', default=1)
     parser.add_argument('--suffix_len', type=int, help='Length of the suffix to add to the text', default=20)
     parser.add_argument('--suffix_char', type=str, help='Character to use for the suffix', default='!')
     parser.add_argument('--results_dir', type=str, help='Directory to save the results', default='results')

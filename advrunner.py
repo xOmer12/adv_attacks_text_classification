@@ -12,6 +12,7 @@ class AdvRunner:
 
         self.embeddings_matrix = self.model.embeddings_matrix
         self.PP_T = self.model.PP_T.to(self.device)
+        
         self.tokenizer = self.model.tokenizer
         self.model.eval()
 
