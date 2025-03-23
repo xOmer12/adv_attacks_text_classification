@@ -61,7 +61,7 @@ def main():
     test_df = test_df.sample(frac=args.test_frac)
 
     # Load the model and tokenizer
-    model = BinaryTextClassifier('bert-base-uncased', device).to(device)
+    model = BinaryTextClassifier(args.model_name, device).to(device)
     train_dataset = TextDataset(train_df, model.tokenizer, max_length=max_length)
     test_dataset = TextDataset(test_df, model.tokenizer, max_length=max_length)
 
