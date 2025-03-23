@@ -14,25 +14,22 @@ class BinaryTextClassifier(nn.Module):
         self.sigmoid = nn.Sigmoid()
         self.set_PP_T(normalize=normalize_PP_T)
 
-    def compute_projection_matrix(self, X):
-         """
-         Compute the projection matrix P that projects any vector onto the space spanned by the rows of X.
-         
-         Args:
-         X: Tensor of shape (N, D) representing N samples in D-dimensional space.
-         
-         Returns:
-         P: Projection matrix of shape (D, D).
-         """
-         X_t = X.T  # (D, N)
-         gram_matrix = torch.matmul(X, X_t)  # (D, D)
-         
-         # Compute the inverse (pseudo-inverse if necessary)
-         gram_inv = torch.inverse(gram_matrix)  # (N, N), assuming full rank
-         
-         # Compute the projection matrix
-         P = torch.matmul(X_t, torch.matmul(gram_inv, X))  # (D, D)
-         return P
+    def compute_projection_matrix(self, X, k=100):
+        """
+        Compute the projection matrix P that projects any vector onto the space spanned by the rows of X.
+        
+        Args:
+        X: Tensor of shape (N, D) representing N samples in D-dimensional space.
+        
+        Returns:
+        P: Projection matrix of shape (N, N).
+        """
+        U, S, Vh = torch.linalg.svd(X)
+        # take the top k eigenvectors of Vh
+        Vk = Vh[:k,:]
+        # Compute the projection matrix onto the row space:
+        P_row = Vk.T @ Vk
+        return P_row
     
     def set_PP_T(self, normalize=True):
         self.embeddings_matrix = self.get_static_embeddings_matrix()

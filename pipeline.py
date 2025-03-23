@@ -66,7 +66,6 @@ def main():
     test_dataset = TextDataset(test_df, model.tokenizer, max_length=max_length)
 
     train_loader = DataLoader(train_dataset, batch_size=args.train_batch_size, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=args.train_batch_size, shuffle=False)
 
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
     criterion = nn.BCELoss()
