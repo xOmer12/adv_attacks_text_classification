@@ -93,7 +93,7 @@ class AdvRunner:
                 perturbed_text, perturbed_text_pred, perturbed_text_loss, perturbed_emb_pred, perturbed_emb_loss
     
 
-    def PGD(self, inputs, num_iter=5, verbose=False, return_iter_results=False):
+    def PGD(self, inputs, num_iter=5, proj_freq=1, verbose=False, return_iter_results=False):
         # Decode original input text and append the suffix 
         original_text = self.decode(inputs['input_ids'][0]) + self.suffix
 
@@ -127,7 +127,8 @@ class AdvRunner:
             perturbation = inputs_embeds.grad[:, -(self.suffix_len):-1]
             with torch.no_grad():
                 inputs_embeds[:, -(self.suffix_len):-1] += self.alpha * perturbation
-                # inputs_embeds = self.project(inputs_embeds)
+                if t % proj_freq == 0: # Project every proj_freq iterations
+                    inputs_embeds = self.project(inputs_embeds) # needed to be fixed (not sure if correct)
                 distances = torch.cdist(inputs_embeds, self.embeddings_matrix)
                 perturbed_input_ids = distances.argmin(dim=-1)
             
