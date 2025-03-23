@@ -93,7 +93,7 @@ class AdvRunner:
                 perturbed_text, perturbed_text_pred, perturbed_text_loss, perturbed_emb_pred, perturbed_emb_loss
     
 
-    def PGD(self, inputs, num_iter=5, proj_freq=1, verbose=False, return_iter_results=False):
+    def PGD(self, inputs, num_iter=5, text_proj_freq=1, verbose=False, return_iter_results=False):
         # Decode original input text and append the suffix 
         original_text = self.decode(inputs['input_ids'][0]) + self.suffix
 
@@ -115,7 +115,7 @@ class AdvRunner:
                                                                         label=label)
         
         curr_emb_pred, curr_emb_loss = original_emb_pred, original_emb_loss
-
+        curr_loss_for_grad = curr_emb_loss
         # save loss throughout iterations
         loss_list = [original_text_loss.item()]
 
@@ -123,12 +123,11 @@ class AdvRunner:
         iter_state_dict = {}
         for t in range(1, num_iter + 1):
             iter_key = f'iter_{t}'
-            curr_emb_loss.backward()
+            curr_loss_for_grad.backward()
             perturbation = inputs_embeds.grad[:, -(self.suffix_len):-1]
             with torch.no_grad():
                 inputs_embeds[:, -(self.suffix_len):-1] += self.alpha * perturbation
-                if t % proj_freq == 0: # Project every proj_freq iterations
-                    inputs_embeds = self.project(inputs_embeds) # needed to be fixed (not sure if correct)
+                inputs_embeds = self.project(inputs_embeds) 
                 distances = torch.cdist(inputs_embeds, self.embeddings_matrix)
                 perturbed_input_ids = distances.argmin(dim=-1)
             
@@ -136,9 +135,16 @@ class AdvRunner:
             if verbose:
                 print(f'Perturbed Text at Iteration {t}: {new_text}')
 
-            curr_emb_pred, curr_emb_loss = self.get_pred_and_loss(input_ids=perturbed_input_ids,
+            _, curr_text_loss = self.get_pred_and_loss(input_ids=perturbed_input_ids,
                                                             attention_mask=attention_mask,
                                                             label=label)
+            _, curr_emb_loss = self.get_pred_and_loss(inputs_embeds=inputs_embeds,
+                                                            attention_mask=attention_mask,
+                                                            label=label)
+            if t % text_proj_freq == 0:
+                curr_loss_for_grad = curr_text_loss # We derive according to the text loss (text projection)
+            else:
+                curr_loss_for_grad = curr_emb_loss # We derive according to the embeddings' loss
             
             # Decode new perturbed text
             perturbed_text = self.decode(perturbed_input_ids[0])
@@ -228,7 +234,7 @@ def run_FGSM_attack(advrunner, adv_test_loader, verbose=False):
         }
     return dict_attack_results
 
-def run_PGD_attack(advrunner, adv_test_loader, verbose=False, num_iter=5, return_iter_results=False):
+def run_PGD_attack(advrunner, adv_test_loader, verbose=False, num_iter=5, text_proj_freq=1, return_iter_results=False):
     print("Running PGD attack...")
     dict_attack_results = {}
     for inputs in tqdm(adv_test_loader):
@@ -236,7 +242,7 @@ def run_PGD_attack(advrunner, adv_test_loader, verbose=False, num_iter=5, return
         if return_iter_results:
             original_text, original_text_pred, original_text_loss, original_emb_pred, original_emb_loss, \
                     perturbed_text, perturbed_text_pred, perturbed_text_loss, perturbed_emb_pred, perturbed_emb_loss, \
-                    loss_list = advrunner.PGD(single_input, verbose=verbose, num_iter=num_iter, return_iter_results=return_iter_results)
+                    loss_list = advrunner.PGD(single_input, verbose=verbose, num_iter=num_iter, text_proj_freq=text_proj_freq, return_iter_results=return_iter_results)
             dict_attack_results[original_text] = {
                 'original_text_pred': original_text_pred,
                 'original_text_loss': original_text_loss.item(),

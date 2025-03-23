@@ -35,7 +35,7 @@ def main():
     parser.add_argument('--suffix_len', type=int, help='Length of the suffix to add to the text', default=20)
     parser.add_argument('--suffix_char', type=str, help='Character to use for the suffix', default=' !')
     parser.add_argument('--results_dir', type=str, help='Directory to save the results', default='results')
-    parser.add_argument('--proj_freq', type=int, help='project using embedding matrix in a given frequency', default=1)
+    parser.add_argument('--text_proj_freq', type=int, help='project using embedding matrix in a given frequency', default=1)
 
     args = parser.parse_args()
     max_length = args.max_token_length - args.suffix_len
@@ -106,7 +106,7 @@ def main():
         print(f"Results saved to {results_path}")
     
     elif args.attack == 'PGD':
-        dict_attack_results = run_PGD_attack(advrunner, adv_test_loader, verbose=args.verbose, num_iter=args.PGD_iterations, proj_freq=args.proj_freq, return_iter_results=args.return_iter_results)
+        dict_attack_results = run_PGD_attack(advrunner, adv_test_loader, verbose=args.verbose, num_iter=args.PGD_iterations, text_proj_freq=args.text_proj_freq, return_iter_results=args.return_iter_results)
         perturbed_accuracy = calculate_perturbed_accuracy(dict_attack_results)
         print(f"Clean Accuracy: {clean_accuracy}")
         print(f"Perturbed Accuracy: {perturbed_accuracy}")
