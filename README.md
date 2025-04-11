@@ -57,7 +57,7 @@ python pipeline.py --attack=PGD --alpha=2 --model_name=bert-base-uncased --test_
 ## 📌 Notes
 - `--alpha` controls the perturbation step size.
 - `--test_frac` sets the fraction of the dataset used for testing.
-- `--enable_emb_proj` activates the proposed embedding projection method to enhance robustness.
+- `--enable_emb_proj` activates the proposed embedding projection method.
 
 ---
 
