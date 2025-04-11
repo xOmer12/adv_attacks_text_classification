@@ -10,7 +10,11 @@ class AdvRunner:
         self.alpha = alpha
         self.suffix_len = suffix_len
 
-        self.embeddings_matrix = self.model.embeddings_matrix
+        self.embeddings_matrix = self.model.embeddings_matrix.to(self.device)
+        # compute mean and max norms of the embeddings matrix
+        self.embeddings_matrix_norm_mean = self.embeddings_matrix.norm(p=2, dim=-1).mean()
+        self.embeddings_matrix_norm_max = self.embeddings_matrix.norm(p=2, dim=-1).max()
+
         self.PP_T = self.model.PP_T.to(self.device)
         self.tokenizer = self.model.tokenizer
         self.model.eval()
@@ -19,7 +23,7 @@ class AdvRunner:
 
     # TODO: check if this is the correct projection (for now we ignore it)
     def project(self, inputs_embeds):
-        inputs_embeds[:, -(self.suffix_len+1):-1] = torch.matmul(inputs_embeds[:, -(self.suffix_len+1):-1], self.PP_T.T)
+        inputs_embeds[:, -(self.suffix_len + 1):-1] = torch.matmul(inputs_embeds[:, -(self.suffix_len + 1):-1], self.PP_T.T)
         return inputs_embeds
 
     def decode(self, input_ids, skip_special_tokens=True):
@@ -62,11 +66,11 @@ class AdvRunner:
             print(f'Original embedding loss: {original_emb_loss.item()}')
 
         # Extract gradients sign corresponding to suffix tokens only
-        perturbation = inputs_embeds.grad[:, -(self.suffix_len):-1].sign()
+        perturbation = inputs_embeds.grad[:, -(self.suffix_len + 1):-1].sign()
 
         # Apply perturbation
         with torch.no_grad():
-            inputs_embeds[:, -(self.suffix_len):-1] += self.alpha * perturbation
+            inputs_embeds[:, -(self.suffix_len + 1):-1] += self.alpha * perturbation
             # Map perturbed embeddings back to discrete tokens (nearest embeddings by L2 distance)
             distances = torch.cdist(inputs_embeds, self.embeddings_matrix)
             perturbed_input_ids = distances.argmin(dim=-1)
@@ -118,14 +122,26 @@ class AdvRunner:
         # save loss throughout iterations
         loss_list = [original_text_loss.item()]
 
+        # NEW: perturbation norm lists
+        perturbation_max_norm_list = []
+        perturbation_mean_norm_list = []
+
+
         loss_dict = {}
         iter_state_dict = {}
         for t in range(1, num_iter + 1):
             iter_key = f'iter_{t}'
             curr_loss_for_grad.backward()
-            perturbation = inputs_embeds.grad[:, -(self.suffix_len):-1]
+            perturbation = inputs_embeds.grad[:, -(self.suffix_len + 1):-1]
+            perturbation_max_norm = perturbation.norm(p=2, dim=-1).max()
+            perturbation_mean_norm = perturbation.norm(p=2, dim=-1).mean()
+
+            perturbation_max_norm_list.append(perturbation_max_norm.item())
+            perturbation_mean_norm_list.append(perturbation_mean_norm.item())
+
+
             with torch.no_grad():
-                inputs_embeds[:, -(self.suffix_len):-1] += self.alpha * perturbation
+                inputs_embeds[:, -(self.suffix_len + 1):-1] += self.alpha * perturbation
                 if enable_emb_proj:
                     inputs_embeds = self.project(inputs_embeds)
                 distances = torch.cdist(inputs_embeds, self.embeddings_matrix)
@@ -174,7 +190,7 @@ class AdvRunner:
         if return_iter_results:
             return original_text, original_text_pred, original_text_loss, original_emb_pred, original_emb_loss, \
                 perturbed_text, perturbed_text_pred, perturbed_text_loss, perturbed_emb_pred, perturbed_emb_loss, \
-                loss_list
+                loss_list, perturbation_max_norm_list, perturbation_mean_norm_list
 
         return original_text, original_text_pred, original_text_loss, original_emb_pred, original_emb_loss, \
                 perturbed_text, perturbed_text_pred, perturbed_text_loss, perturbed_emb_pred, perturbed_emb_loss
@@ -237,7 +253,7 @@ def run_PGD_attack(advrunner, adv_test_loader, verbose=False, num_iter=5, text_p
         if return_iter_results:
             original_text, original_text_pred, original_text_loss, original_emb_pred, original_emb_loss, \
                     perturbed_text, perturbed_text_pred, perturbed_text_loss, perturbed_emb_pred, perturbed_emb_loss, \
-                    loss_list = advrunner.PGD(single_input, verbose=verbose, num_iter=num_iter, text_proj_freq=text_proj_freq, enable_emb_proj=enable_emb_proj, return_iter_results=return_iter_results)
+                    loss_list, perturbation_max_norm_list, perturbation_mean_norm_list = advrunner.PGD(single_input, verbose=verbose, num_iter=num_iter, text_proj_freq=text_proj_freq, enable_emb_proj=enable_emb_proj, return_iter_results=return_iter_results)
             dict_attack_results[original_text] = {
                 'original_text_pred': original_text_pred,
                 'original_text_loss': original_text_loss.item(),
@@ -250,6 +266,10 @@ def run_PGD_attack(advrunner, adv_test_loader, verbose=False, num_iter=5, text_p
                 'perturbed_emb_loss': perturbed_emb_loss.item(),
                 'true_label': single_input['label'].item(),
                 'loss_list': loss_list,
+                'perturbation_max_norm_list': perturbation_max_norm_list,
+                'perturbation_mean_norm_list': perturbation_mean_norm_list,
+                'embeddings_matrix_norm_mean':advrunner.embeddings_matrix_norm_mean.item(),
+                'embeddings_matrix_norm_max': advrunner.embeddings_matrix_norm_max.item(),
             }
         else:
             original_text, original_text_pred, original_text_loss, original_emb_pred, original_emb_loss, \

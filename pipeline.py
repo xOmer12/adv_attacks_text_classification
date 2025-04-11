@@ -69,11 +69,13 @@ def main():
     test_dataset = TextDataset(test_df, model.tokenizer, max_length=max_length)
 
     train_loader = DataLoader(train_dataset, batch_size=args.train_batch_size, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
     criterion = nn.BCELoss()
 
-    classifier_name = f"{args.model_name}_{args.task}_classifier.pth"
+    classifier_name = f"{args.model_name.split('/')[-1]}_{args.task}_classifier.pth"
+    print(f"Classifier name: {classifier_name}")
     # Create the model directory if it doesn't exist
     if not os.path.exists(args.model_dir):
         os.makedirs(args.model_dir)
@@ -100,7 +102,7 @@ def main():
         results_dir = args.results_dir
         if not os.path.exists(results_dir):
             os.makedirs(results_dir)
-        results_name = f"{args.model_name}_{args.task}_{args.attack}_{args.alpha}_results.pkl"
+        results_name = f"{args.model_name.split('/')[-1]}_{args.task}_{args.attack}_{args.alpha}_results.pkl"
         results_path = os.path.join(results_dir, results_name)
         with open(results_path, 'wb') as f:
             pickle.dump(dict_attack_results, f)
@@ -116,7 +118,7 @@ def main():
         results_dir = args.results_dir
         if not os.path.exists(results_dir):
             os.makedirs(results_dir)
-        results_name = f"{args.model_name}_{args.task}_{args.attack}_{args.alpha}_{args.text_proj_freq}_{args.enable_emb_proj}_results.pkl"
+        results_name = f"{args.model_name.split('/')[-1]}_{args.task}_{args.attack}_{args.alpha}_{args.text_proj_freq}_{args.enable_emb_proj}_results.pkl"
         results_path = os.path.join(results_dir, results_name)
         with open(results_path, 'wb') as f:
             pickle.dump(dict_attack_results, f)

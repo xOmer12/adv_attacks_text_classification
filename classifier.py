@@ -24,7 +24,8 @@ class BinaryTextClassifier(nn.Module):
         Returns:
         P: Projection matrix of shape (N, N).
         """
-        U, S, Vh = torch.linalg.svd(X)
+        # U, S, Vh = torch.linalg.svd(X)
+        U, S, Vh = torch.pca_lowrank(self.embeddings_matrix, q=self.embeddings_matrix.shape[-1]) # better for large matrices
         # take the top k eigenvectors of Vh
         Vk = Vh[:k,:]
         # Compute the projection matrix onto the row space:
@@ -33,6 +34,7 @@ class BinaryTextClassifier(nn.Module):
     
     def set_PP_T(self, normalize=True):
         self.embeddings_matrix = self.get_static_embeddings_matrix()
+        print(f"Embeddings matrix shape: {self.embeddings_matrix.shape}")
         self.PP_T = self.compute_projection_matrix(self.embeddings_matrix)
 
     def get_static_embeddings_matrix(self):
